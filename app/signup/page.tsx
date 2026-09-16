@@ -8,7 +8,9 @@ export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [mode, setMode] = useState<'creer' | 'rejoindre'>('creer');
   const [companyName, setCompanyName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,17 +22,18 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
 
-    // company_name et full_name partent dans les metadata Supabase Auth :
-    // le trigger SQL handle_new_user() s'en sert pour créer
-    // automatiquement l'organisation (l'entreprise cliente) et le profil admin.
+    // company_name / invite_code / full_name partent dans les metadata
+    // Supabase Auth : le trigger SQL handle_new_user() s'en sert pour soit
+    // créer une nouvelle organisation (mode "creer"), soit rattacher la
+    // personne à l'organisation correspondant au code (mode "rejoindre").
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          company_name: companyName,
-          full_name: fullName,
-        },
+        data:
+          mode === 'creer'
+            ? { company_name: companyName, full_name: fullName }
+            : { invite_code: inviteCode.trim(), full_name: fullName },
       },
     });
 
@@ -49,21 +52,58 @@ export default function SignupPage() {
       <div className="auth-box">
         <div className="brand">SOURA <span>DIGITAL</span></div>
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Créer votre espace entreprise</h2>
+          <h2 style={{ marginTop: 0 }}>
+            {mode === 'creer' ? 'Créer votre espace entreprise' : 'Rejoindre votre entreprise'}
+          </h2>
           <p style={{ color: 'var(--text-mid)', fontSize: '0.9rem', marginTop: '-8px' }}>
-            Vos données seront visibles uniquement par les membres de votre entreprise.
+            {mode === 'creer'
+              ? 'Vos données seront visibles uniquement par les membres de votre entreprise.'
+              : "Demandez le code d'invitation à l'administrateur de votre entreprise."}
           </p>
+
+          <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
+            <button
+              type="button"
+              className={mode === 'creer' ? '' : 'secondary'}
+              onClick={() => setMode('creer')}
+              style={{ flex: 1 }}
+            >
+              Créer une entreprise
+            </button>
+            <button
+              type="button"
+              className={mode === 'rejoindre' ? '' : 'secondary'}
+              onClick={() => setMode('rejoindre')}
+              style={{ flex: 1 }}
+            >
+              Rejoindre avec un code
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label>Nom de l'entreprise</label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="ex. SOURA BTP ET PRESTATIONS"
-                required
-              />
-            </div>
+            {mode === 'creer' ? (
+              <div className="field">
+                <label>Nom de l'entreprise</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="ex. SOURA BTP ET PRESTATIONS"
+                  required
+                />
+              </div>
+            ) : (
+              <div className="field">
+                <label>Code d'invitation</label>
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="ex. a1b2c3d4"
+                  required
+                />
+              </div>
+            )}
             <div className="field">
               <label>Votre nom</label>
               <input
@@ -94,7 +134,7 @@ export default function SignupPage() {
             </div>
             {error && <div className="error">{error}</div>}
             <button type="submit" disabled={loading} style={{ width: '100%' }}>
-              {loading ? 'Création en cours…' : 'Créer mon compte'}
+              {loading ? 'Création en cours…' : mode === 'creer' ? 'Créer mon compte' : 'Rejoindre l\'entreprise'}
             </button>
           </form>
           <p style={{ marginTop: 18, fontSize: '0.85rem', color: 'var(--text-mid)' }}>

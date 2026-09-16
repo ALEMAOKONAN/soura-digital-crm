@@ -13,6 +13,7 @@ const MODULES = [
   { href: '/dashboard/prestataires', label: 'Prestataires / Sous-traitants', ready: true },
   { href: '/dashboard/engins', label: 'Engins & carburant', ready: true },
   { href: '/dashboard/rapports', label: 'Situations & rapports', ready: true },
+  { href: '/dashboard/equipe', label: 'Équipe', ready: true },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

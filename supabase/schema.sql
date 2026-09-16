@@ -11,8 +11,8 @@
 -- Ordre important : les tables (et leurs policies) doivent être
 -- supprimées AVANT les fonctions dont ces policies dépendent.
 drop trigger if exists on_auth_user_created on auth.users;
-drop trigger if exists verrouiller_organization_et_role on profiles;
-drop function if exists empecher_escalade_privileges();
+drop trigger if exists verrou_privileges_profil on profiles;
+drop function if exists empecher_elevation_privileges();
 drop table if exists situations cascade;
 drop table if exists maintenances cascade;
 drop table if exists carburant cascade;
@@ -41,6 +41,7 @@ create table organizations (
   name text not null,
   subscription_plan text not null default 'essai',       -- essai / standard / pro
   subscription_status text not null default 'active',    -- active / suspendu / annule
+  invite_code text not null unique default substr(replace(gen_random_uuid()::text, '-', ''), 1, 8),
   created_at timestamptz not null default now()
 );
 
@@ -623,10 +624,11 @@ create policy "supprimer les situations de son organisation"
   using (organization_id = auth_organization_id());
 
 -- ============================================================
--- INSCRIPTION : quand une nouvelle entreprise s'inscrit, on crée
--- automatiquement son organisation + son profil admin.
--- Le nom de l'entreprise est passé depuis le formulaire d'inscription
--- via les "user metadata" de Supabase Auth (voir app/signup).
+-- INSCRIPTION : quand une nouvelle entreprise s'inscrit sans code
+-- d'invitation, on crée automatiquement son organisation + son
+-- profil admin. Si un code d'invitation valide est fourni, la
+-- personne rejoint l'entreprise correspondante comme "membre" au
+-- lieu de créer une nouvelle entreprise.
 -- ============================================================
 create or replace function handle_new_user()
 returns trigger
@@ -637,20 +639,31 @@ as $$
 declare
   new_org_id uuid;
   company_name text;
+  code_saisi text;
+  full_name_saisi text;
 begin
   company_name := coalesce(new.raw_user_meta_data->>'company_name', 'Nouvelle entreprise');
+  code_saisi := nullif(trim(new.raw_user_meta_data->>'invite_code'), '');
+  full_name_saisi := coalesce(new.raw_user_meta_data->>'full_name', new.email);
 
-  insert into organizations (name)
-  values (company_name)
-  returning id into new_org_id;
+  if code_saisi is not null then
+    select id into new_org_id from organizations where invite_code = code_saisi;
 
-  insert into profiles (id, organization_id, full_name, role)
-  values (
-    new.id,
-    new_org_id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.email),
-    'admin'
-  );
+    if new_org_id is null then
+      raise exception 'Code d''invitation invalide';
+    end if;
+
+    insert into profiles (id, organization_id, full_name, role)
+    values (new.id, new_org_id, full_name_saisi, 'membre');
+  else
+    -- Pas de code : crée une nouvelle entreprise
+    insert into organizations (name)
+    values (company_name)
+    returning id into new_org_id;
+
+    insert into profiles (id, organization_id, full_name, role)
+    values (new.id, new_org_id, full_name_saisi, 'admin');
+  end if;
 
   return new;
 end;
@@ -659,32 +672,3 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
-
--- ============================================================
--- SÉCURITÉ CRITIQUE : empêcher un utilisateur de s'auto-attribuer
--- un autre organization_id ou le rôle "admin" en modifiant son
--- propre profil. Sans cette protection, la policy RLS "modifier
--- son propre profil" (qui vérifie seulement id = auth.uid()) ne
--- l'empêche pas de changer ces deux colonnes — ce qui romprait
--- l'isolation des données entre entreprises clientes.
--- ============================================================
-create or replace function empecher_escalade_privileges()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if new.organization_id is distinct from old.organization_id then
-    raise exception 'Modification de organization_id non autorisée';
-  end if;
-  if new.role is distinct from old.role then
-    raise exception 'Modification de role non autorisée';
-  end if;
-  return new;
-end;
-$$;
-
-create trigger verrouiller_organization_et_role
-  before update on profiles
-  for each row execute function empecher_escalade_privileges();

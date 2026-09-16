@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard, HardHat, FileText, Wallet, ShoppingCart, Boxes,
-  Users, Handshake, Truck, ClipboardList, Menu, X, LogOut,
+  Users, Handshake, Truck, ClipboardList, Menu, X, LogOut, UserPlus,
 } from 'lucide-react';
 
 type ModuleLink = { href: string; label: string; ready: boolean };
@@ -22,6 +22,7 @@ const ICONS: Record<string, any> = {
   '/dashboard/prestataires': Handshake,
   '/dashboard/engins': Truck,
   '/dashboard/rapports': ClipboardList,
+  '/dashboard/equipe': UserPlus,
 };
 
 export default function DashboardShell({
