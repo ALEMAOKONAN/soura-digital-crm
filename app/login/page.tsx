@@ -1,12 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  const desactive = searchParams.get('desactive') === '1';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +47,11 @@ export default function LoginPage() {
         <div className="brand">SOURA <span>DIGITAL</span></div>
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Connexion</h2>
+          {desactive && (
+            <div className="error" style={{ marginBottom: 12 }}>
+              Votre accès a été désactivé par l'administrateur de votre entreprise. Contactez-le pour plus d'informations.
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="field">
               <label>E-mail</label>

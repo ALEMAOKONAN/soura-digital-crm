@@ -24,9 +24,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, organization_id, organizations(name)')
+    .select('full_name, role, actif, organization_id, organizations(name)')
     .eq('id', user.id)
     .single();
+
+  if (profile && profile.actif === false) {
+    await supabase.auth.signOut();
+    redirect('/login?desactive=1');
+  }
 
   const orgName = (profile as any)?.organizations?.name ?? '';
 

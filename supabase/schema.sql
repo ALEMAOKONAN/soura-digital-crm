@@ -51,6 +51,7 @@ create table profiles (
   organization_id uuid not null references organizations(id) on delete cascade,
   full_name text,
   role text not null default 'membre',   -- admin / conducteur_travaux / chef_chantier / membre
+  actif boolean not null default true,   -- false = accès coupé (retiré par un admin), sans supprimer le compte
   created_at timestamptz not null default now()
 );
 
@@ -280,7 +281,7 @@ security definer
 stable
 set search_path = public
 as $$
-  select organization_id from profiles where id = auth.uid();
+  select organization_id from profiles where id = auth.uid() and actif = true;
 $$;
 
 -- ============================================================
@@ -316,29 +317,66 @@ create policy "voir les profils de son organisation"
   on profiles for select
   using (organization_id = auth_organization_id());
 
+-- Chacun peut toujours voir SON PROPRE profil, même désactivé — sans
+-- cette policy, un membre désactivé ne pourrait plus rien voir du
+-- tout (y compris son propre statut), et l'application ne pourrait
+-- pas lui afficher un message clair expliquant pourquoi il est bloqué.
+create policy "voir son propre profil"
+  on profiles for select
+  using (id = auth.uid());
+
 create policy "modifier son propre profil"
   on profiles for update
   using (id = auth.uid());
 
--- Verrou de sécurité critique : sans lui, un utilisateur pourrait modifier
--- son propre organization_id via l'API et accéder aux données d'une AUTRE
--- entreprise cliente, ou modifier son role pour s'octroyer les droits admin.
--- Les policies RLS ci-dessus autorisent la modification de sa propre ligne,
--- mais ce trigger interdit que organization_id ou role changent de valeur,
--- quelle que soit la façon dont la requête de mise à jour est construite.
+-- Un administrateur peut modifier les profils des membres de SA
+-- propre entreprise (pour les promouvoir ou désactiver leur accès).
+-- Combinée à la policy ci-dessus, une ligne est modifiable si l'une
+-- des deux conditions est vraie (c'est le trigger ci-dessous qui
+-- décide ensuite précisément ce qui est autorisé à changer).
+create policy "administrateur gere les membres de son organisation"
+  on profiles for update
+  using (
+    organization_id = auth_organization_id()
+    and exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+
+-- Verrou de sécurité critique : même avec les policies ci-dessus,
+-- ce trigger décide ligne par ligne ce qui a le droit de changer :
+--  - organization_id ne change JAMAIS via update, pour personne
+--    (empêche de rejoindre une autre entreprise cliente) ;
+--  - personne ne peut modifier son PROPRE role ou statut "actif"
+--    (empêche de s'auto-promouvoir admin ou de se réactiver seul) ;
+--  - le role/actif d'un AUTRE membre ne peut être changé que par un
+--    administrateur de la MÊME entreprise.
 create or replace function empecher_elevation_privileges()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  acteur_est_admin boolean;
 begin
   if new.organization_id is distinct from old.organization_id then
     raise exception 'Modification de organization_id non autorisée';
   end if;
-  if new.role is distinct from old.role then
-    raise exception 'Modification de role non autorisée';
+
+  if new.role is distinct from old.role or new.actif is distinct from old.actif then
+    if auth.uid() = old.id then
+      raise exception 'Vous ne pouvez pas modifier votre propre rôle ou statut';
+    end if;
+
+    select exists(
+      select 1 from profiles
+      where id = auth.uid() and role = 'admin' and organization_id = old.organization_id
+    ) into acteur_est_admin;
+
+    if not acteur_est_admin then
+      raise exception 'Seul un administrateur de cette entreprise peut modifier le rôle ou le statut d''un membre';
+    end if;
   end if;
+
   return new;
 end;
 $$;
