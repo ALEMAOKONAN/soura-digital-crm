@@ -677,10 +677,12 @@ as $$
 declare
   new_org_id uuid;
   company_name text;
+  secteur_saisi text;
   code_saisi text;
   full_name_saisi text;
 begin
   company_name := coalesce(new.raw_user_meta_data->>'company_name', 'Nouvelle entreprise');
+  secteur_saisi := coalesce(new.raw_user_meta_data->>'secteur', 'general');
   code_saisi := nullif(trim(new.raw_user_meta_data->>'invite_code'), '');
   full_name_saisi := coalesce(new.raw_user_meta_data->>'full_name', new.email);
 
@@ -695,8 +697,8 @@ begin
     values (new.id, new_org_id, full_name_saisi, 'membre');
   else
     -- Pas de code : crée une nouvelle entreprise
-    insert into organizations (name)
-    values (company_name)
+    insert into organizations (name, secteur)
+    values (company_name, secteur_saisi)
     returning id into new_org_id;
 
     insert into profiles (id, organization_id, full_name, role)

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { SECTEURS } from '@/lib/secteurs';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function SignupPage() {
 
   const [mode, setMode] = useState<'creer' | 'rejoindre'>('creer');
   const [companyName, setCompanyName] = useState('');
+  const [secteur, setSecteur] = useState('general');
   const [inviteCode, setInviteCode] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,7 +34,7 @@ export default function SignupPage() {
       options: {
         data:
           mode === 'creer'
-            ? { company_name: companyName, full_name: fullName }
+            ? { company_name: companyName, secteur, full_name: fullName }
             : { invite_code: inviteCode.trim(), full_name: fullName },
       },
     });
@@ -82,16 +84,26 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit}>
             {mode === 'creer' ? (
-              <div className="field">
-                <label>Nom de l'entreprise</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="ex. SOURA BTP ET PRESTATIONS"
-                  required
-                />
-              </div>
+              <>
+                <div className="field">
+                  <label>Nom de l'entreprise</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="ex. SOURA BTP ET PRESTATIONS"
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Secteur d'activité</label>
+                  <select value={secteur} onChange={(e) => setSecteur(e.target.value)}>
+                    {SECTEURS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
             ) : (
               <div className="field">
                 <label>Code d'invitation</label>

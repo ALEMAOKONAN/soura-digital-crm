@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import DashboardShell from './shell';
+import { modulesMasquesPourSecteur } from '@/lib/secteurs';
 
 const MODULES = [
   { href: '/dashboard', label: 'Tableau de bord', ready: true },
@@ -24,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, actif, organization_id, organizations(name)')
+    .select('full_name, role, actif, organization_id, organizations(name, secteur)')
     .eq('id', user.id)
     .single();
 
@@ -34,9 +35,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const orgName = (profile as any)?.organizations?.name ?? '';
+  const secteur = (profile as any)?.organizations?.secteur ?? 'general';
+  const masques = modulesMasquesPourSecteur(secteur);
+  const modulesVisibles = MODULES.filter((m) => !masques.includes(m.href));
 
   return (
-    <DashboardShell modules={MODULES} orgName={orgName} userName={profile?.full_name ?? user.email ?? ''}>
+    <DashboardShell modules={modulesVisibles} orgName={orgName} userName={profile?.full_name ?? user.email ?? ''}>
       {children}
     </DashboardShell>
   );
