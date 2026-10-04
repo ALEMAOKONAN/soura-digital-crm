@@ -3,11 +3,11 @@
 // (par leur href) qui n'ont pas lieu d'être affichés pour ce secteur.
 export const SECTEURS = [
   { value: 'general', label: 'BTP général / Multi-activités', modulesMasques: [] as string[] },
-  { value: 'gros_oeuvre', label: 'Gros œuvre', modulesMasques: [] as string[] },
-  { value: 'electricite', label: 'Électricité', modulesMasques: ['/dashboard/engins'] },
-  { value: 'plomberie', label: 'Plomberie', modulesMasques: ['/dashboard/engins'] },
-  { value: 'vrd', label: 'VRD / Terrassement', modulesMasques: [] as string[] },
-  { value: 'peinture', label: 'Peinture / Finition', modulesMasques: ['/dashboard/engins'] },
+  { value: 'gros_oeuvre', label: 'BTP général — Gros œuvre', modulesMasques: [] as string[] },
+  { value: 'electricite', label: 'BTP général — Électricité', modulesMasques: [] as string[] },
+  { value: 'plomberie', label: 'BTP général — Plomberie', modulesMasques: [] as string[] },
+  { value: 'vrd', label: 'BTP général — VRD / Terrassement', modulesMasques: [] as string[] },
+  { value: 'peinture', label: 'BTP général — Peinture / Finition', modulesMasques: [] as string[] },
   { value: 'autre', label: 'Autre', modulesMasques: [] as string[] },
 ];
 
