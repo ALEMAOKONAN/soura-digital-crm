@@ -1,20 +1,21 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import DashboardShell from './shell';
-import { modulesMasquesPourSecteur } from '@/lib/secteurs';
+import { domainePourSecteur, type Domaine } from '@/lib/secteurs';
 
-const MODULES = [
-  { href: '/dashboard', label: 'Tableau de bord', ready: true },
-  { href: '/dashboard/chantiers', label: 'Chantiers & planning', ready: true },
-  { href: '/dashboard/devis', label: 'DQE / Devis / Factures', ready: true },
-  { href: '/dashboard/budget', label: 'Budget & dépenses', ready: true },
-  { href: '/dashboard/achats', label: 'Achats & demandes', ready: true },
-  { href: '/dashboard/stock', label: 'Stocks & matériaux', ready: true },
-  { href: '/dashboard/rh', label: 'RH / Ouvriers / Tâcherons', ready: true },
-  { href: '/dashboard/prestataires', label: 'Prestataires / Sous-traitants', ready: true },
-  { href: '/dashboard/engins', label: 'Engins & carburant', ready: true },
-  { href: '/dashboard/rapports', label: 'Situations & rapports', ready: true },
-  { href: '/dashboard/equipe', label: 'Équipe', ready: true },
+const MODULES: { href: string; label: string; ready: true; domaine: Domaine | 'commun' }[] = [
+  { href: '/dashboard', label: 'Tableau de bord', ready: true, domaine: 'commun' },
+  { href: '/dashboard/chantiers', label: 'Chantiers & planning', ready: true, domaine: 'btp' },
+  { href: '/dashboard/devis', label: 'DQE / Devis / Factures', ready: true, domaine: 'btp' },
+  { href: '/dashboard/budget', label: 'Budget & dÃ©penses', ready: true, domaine: 'btp' },
+  { href: '/dashboard/achats', label: 'Achats & demandes', ready: true, domaine: 'btp' },
+  { href: '/dashboard/stock', label: 'Stocks & matÃ©riaux', ready: true, domaine: 'btp' },
+  { href: '/dashboard/rh', label: 'RH / Ouvriers / TÃ¢cherons', ready: true, domaine: 'btp' },
+  { href: '/dashboard/prestataires', label: 'Prestataires / Sous-traitants', ready: true, domaine: 'btp' },
+  { href: '/dashboard/engins', label: 'Engins & carburant', ready: true, domaine: 'btp' },
+  { href: '/dashboard/rapports', label: 'Situations & rapports', ready: true, domaine: 'btp' },
+  { href: '/dashboard/pharmacie', label: 'Pharmacie', ready: true, domaine: 'pharmacie' },
+  { href: '/dashboard/equipe', label: 'Ã‰quipe', ready: true, domaine: 'commun' },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -36,8 +37,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const orgName = (profile as any)?.organizations?.name ?? '';
   const secteur = (profile as any)?.organizations?.secteur ?? 'general';
-  const masques = modulesMasquesPourSecteur(secteur);
-  const modulesVisibles = MODULES.filter((m) => !masques.includes(m.href));
+  const domaine = domainePourSecteur(secteur);
+  const modulesVisibles = MODULES.filter((m) => m.domaine === 'commun' || m.domaine === domaine);
 
   return (
     <DashboardShell modules={modulesVisibles} orgName={orgName} userName={profile?.full_name ?? user.email ?? ''}>

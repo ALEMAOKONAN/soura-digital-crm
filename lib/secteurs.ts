@@ -1,20 +1,26 @@
-// Secteurs d'activité proposés à l'inscription. La clé est stockée en
-// base (organizations.secteur) ; "modulesMasques" liste les modules
-// (par leur href) qui n'ont pas lieu d'être affichés pour ce secteur.
-export const SECTEURS = [
-  { value: 'general', label: 'BTP général / Multi-activités', modulesMasques: [] as string[] },
-  { value: 'gros_oeuvre', label: 'BTP général — Gros œuvre', modulesMasques: [] as string[] },
-  { value: 'electricite', label: 'BTP général — Électricité', modulesMasques: [] as string[] },
-  { value: 'plomberie', label: 'BTP général — Plomberie', modulesMasques: [] as string[] },
-  { value: 'vrd', label: 'BTP général — VRD / Terrassement', modulesMasques: [] as string[] },
-  { value: 'peinture', label: 'BTP général — Peinture / Finition', modulesMasques: [] as string[] },
-  { value: 'autre', label: 'Autre', modulesMasques: [] as string[] },
+// Secteurs d'activitÃ© proposÃ©s Ã  l'inscription. La clÃ© est stockÃ©e en
+// base (organizations.secteur). "domaine" dÃ©termine quel ensemble de
+// modules mÃ©tier l'entreprise voit dans son tableau de bord : les
+// modules BTP pour un domaine 'btp', le module Pharmacie pour un
+// domaine 'pharmacie', etc. Les modules communs (tableau de bord,
+// Ã©quipe) restent toujours visibles quel que soit le domaine.
+export type Domaine = 'btp' | 'pharmacie';
+
+export const SECTEURS: { value: string; label: string; domaine: Domaine }[] = [
+  { value: 'general', label: 'BTP gÃ©nÃ©ral / Multi-activitÃ©s', domaine: 'btp' },
+  { value: 'gros_oeuvre', label: 'BTP gÃ©nÃ©ral â€” Gros Å“uvre', domaine: 'btp' },
+  { value: 'electricite', label: 'BTP gÃ©nÃ©ral â€” Ã‰lectricitÃ©', domaine: 'btp' },
+  { value: 'plomberie', label: 'BTP gÃ©nÃ©ral â€” Plomberie', domaine: 'btp' },
+  { value: 'vrd', label: 'BTP gÃ©nÃ©ral â€” VRD / Terrassement', domaine: 'btp' },
+  { value: 'peinture', label: 'BTP gÃ©nÃ©ral â€” Peinture / Finition', domaine: 'btp' },
+  { value: 'pharmacie', label: 'Pharmacie', domaine: 'pharmacie' },
+  { value: 'autre', label: 'Autre', domaine: 'btp' },
 ];
 
 export function labelSecteur(value: string) {
   return SECTEURS.find((s) => s.value === value)?.label ?? value;
 }
 
-export function modulesMasquesPourSecteur(value: string): string[] {
-  return SECTEURS.find((s) => s.value === value)?.modulesMasques ?? [];
+export function domainePourSecteur(value: string): Domaine {
+  return SECTEURS.find((s) => s.value === value)?.domaine ?? 'btp';
 }

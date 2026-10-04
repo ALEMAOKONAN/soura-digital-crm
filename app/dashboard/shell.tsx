@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard, HardHat, FileText, Wallet, ShoppingCart, Boxes,
-  Users, Handshake, Truck, ClipboardList, Menu, X, LogOut, UserPlus,
+  Users, Handshake, Truck, ClipboardList, Menu, X, LogOut, UserPlus, Pill,
 } from 'lucide-react';
 
 type ModuleLink = { href: string; label: string; ready: boolean };
@@ -22,6 +22,7 @@ const ICONS: Record<string, any> = {
   '/dashboard/prestataires': Handshake,
   '/dashboard/engins': Truck,
   '/dashboard/rapports': ClipboardList,
+  '/dashboard/pharmacie': Pill,
   '/dashboard/equipe': UserPlus,
 };
 
@@ -83,7 +84,7 @@ export default function DashboardShell({
                 {m.label}
               </span>
               {!m.ready && (
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-mid)' }}>Bientôt</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-mid)' }}>BientÃ´t</span>
               )}
             </Link>
           );
@@ -93,7 +94,7 @@ export default function DashboardShell({
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 14 }}>
         <div style={{ fontSize: '0.85rem', marginBottom: 10 }}>{userName}</div>
         <button className="secondary" onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <LogOut size={15} /> Se déconnecter
+          <LogOut size={15} /> Se dÃ©connecter
         </button>
       </div>
     </>
