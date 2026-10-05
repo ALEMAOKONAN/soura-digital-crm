@@ -26,14 +26,6 @@ type Vente = {
 
 type LignePanier = { produit_id: string; nom: string; quantite: number; prix_unitaire: number };
 
-type LigneEdition = {
-  produit_id: string;
-  nom: string;
-  quantite: number;
-  quantite_originale: number;
-  prix_unitaire: number;
-};
-
 const AUJOURDHUI = () => new Date().toISOString().slice(0, 10);
 const DANS_30_JOURS = () => {
   const d = new Date();
@@ -67,15 +59,6 @@ export default function PharmaciePage() {
   const [quantiteVente, setQuantiteVente] = useState('1');
   const [panier, setPanier] = useState<LignePanier[]>([]);
   const [modePaiement, setModePaiement] = useState('especes');
-
-  // Édition d'une vente déjà enregistrée
-  const [venteEnEdition, setVenteEnEdition] = useState<string | null>(null);
-  const [lignesEdition, setLignesEdition] = useState<LigneEdition[]>([]);
-  const [lignesOriginalesEdition, setLignesOriginalesEdition] = useState<LigneEdition[]>([]);
-  const [modePaiementEdition, setModePaiementEdition] = useState('especes');
-  const [produitAjoutEdition, setProduitAjoutEdition] = useState('');
-  const [quantiteAjoutEdition, setQuantiteAjoutEdition] = useState('1');
-  const [enregistrementEdition, setEnregistrementEdition] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -221,167 +204,6 @@ export default function PharmaciePage() {
     showToast('success', `Vente enregistrée — ${totalPanier.toLocaleString('fr-FR')} F`);
     setPanier([]);
     setModePaiement('especes');
-    loadAll();
-  }
-
-  async function ouvrirEditionVente(venteId: string) {
-    const vente = ventes.find((v) => v.id === venteId);
-    if (!vente) return;
-
-    const { data: lignes, error } = await supabase
-      .from('pharmacie_vente_lignes')
-      .select('produit_id, quantite, prix_unitaire')
-      .eq('vente_id', venteId);
-
-    if (error || !lignes) {
-      showToast('error', "Impossible de charger le détail de cette vente.");
-      return;
-    }
-
-    const lignesFormatees: LigneEdition[] = lignes.map((l) => {
-      const produit = produits.find((p) => p.id === l.produit_id);
-      return {
-        produit_id: l.produit_id,
-        nom: produit?.nom ?? '(produit supprimé)',
-        quantite: l.quantite,
-        quantite_originale: l.quantite,
-        prix_unitaire: l.prix_unitaire,
-      };
-    });
-
-    setVenteEnEdition(venteId);
-    setLignesEdition(lignesFormatees);
-    setLignesOriginalesEdition(lignesFormatees);
-    setModePaiementEdition(vente.mode_paiement);
-    setProduitAjoutEdition('');
-    setQuantiteAjoutEdition('1');
-  }
-
-  function annulerEditionVente() {
-    setVenteEnEdition(null);
-    setLignesEdition([]);
-    setLignesOriginalesEdition([]);
-    setProduitAjoutEdition('');
-    setQuantiteAjoutEdition('1');
-  }
-
-  function stockDisponiblePour(produitId: string) {
-    const produit = produits.find((p) => p.id === produitId);
-    const stockActuel = produit?.quantite_stock ?? 0;
-    const ligneOriginale = lignesOriginalesEdition.find((l) => l.produit_id === produitId);
-    // Le stock actuel ne tient pas compte de cette vente qui a déjà été décomptée :
-    // on ajoute la quantité d'origine de cette ligne pour connaître la vraie disponibilité.
-    return stockActuel + (ligneOriginale?.quantite_originale ?? 0);
-  }
-
-  function modifierQuantiteEdition(produitId: string, quantite: number) {
-    const max = stockDisponiblePour(produitId);
-    const qte = Math.max(1, Math.min(quantite, max));
-    setLignesEdition((prev) =>
-      prev.map((l) => (l.produit_id === produitId ? { ...l, quantite: qte } : l))
-    );
-  }
-
-  function retirerLigneEdition(produitId: string) {
-    setLignesEdition((prev) => prev.filter((l) => l.produit_id !== produitId));
-  }
-
-  function ajouterLigneAEdition() {
-    const produit = produits.find((p) => p.id === produitAjoutEdition);
-    if (!produit) return;
-    const qte = Number(quantiteAjoutEdition) || 1;
-    const max = stockDisponiblePour(produit.id);
-
-    const existante = lignesEdition.find((l) => l.produit_id === produit.id);
-    if (existante) {
-      modifierQuantiteEdition(produit.id, existante.quantite + qte);
-    } else {
-      if (qte > max) {
-        showToast('error', `Stock insuffisant (${max} disponible pour cette vente).`);
-        return;
-      }
-      setLignesEdition((prev) => [
-        ...prev,
-        {
-          produit_id: produit.id,
-          nom: produit.nom,
-          quantite: qte,
-          quantite_originale: 0,
-          prix_unitaire: produit.prix_vente,
-        },
-      ]);
-    }
-    setProduitAjoutEdition('');
-    setQuantiteAjoutEdition('1');
-  }
-
-  const totalEdition = useMemo(
-    () => lignesEdition.reduce((s, l) => s + l.quantite * l.prix_unitaire, 0),
-    [lignesEdition]
-  );
-
-  async function enregistrerEditionVente() {
-    if (!venteEnEdition || lignesEdition.length === 0 || enregistrementEdition) return;
-    setEnregistrementEdition(true);
-
-    // Vérification finale du stock disponible pour chaque ligne
-    for (const l of lignesEdition) {
-      if (l.quantite > stockDisponiblePour(l.produit_id)) {
-        showToast('error', `Stock insuffisant pour "${l.nom}".`);
-        setEnregistrementEdition(false);
-        return;
-      }
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user!.id).single();
-
-    const { error: errUpdate } = await supabase
-      .from('pharmacie_ventes')
-      .update({ total: totalEdition, mode_paiement: modePaiementEdition })
-      .eq('id', venteEnEdition);
-
-    if (errUpdate) {
-      showToast('error', "Impossible de mettre à jour la vente.");
-      setEnregistrementEdition(false);
-      return;
-    }
-
-    await supabase.from('pharmacie_vente_lignes').delete().eq('vente_id', venteEnEdition);
-
-    const nouvellesLignes = lignesEdition.map((l) => ({
-      organization_id: profile!.organization_id,
-      vente_id: venteEnEdition,
-      produit_id: l.produit_id,
-      quantite: l.quantite,
-      prix_unitaire: l.prix_unitaire,
-    }));
-    const { error: errLignes } = await supabase.from('pharmacie_vente_lignes').insert(nouvellesLignes);
-
-    if (errLignes) {
-      showToast('error', "Vente mise à jour mais erreur sur le détail.");
-      setEnregistrementEdition(false);
-      return;
-    }
-
-    // Ajustement du stock : on restitue les quantités d'origine puis on retire les nouvelles
-    const produitsConcernes = Array.from(new Set([
-      ...lignesOriginalesEdition.map((l) => l.produit_id),
-      ...lignesEdition.map((l) => l.produit_id),
-    ]));
-
-    for (const produitId of produitsConcernes) {
-      const produit = produits.find((p) => p.id === produitId);
-      if (!produit) continue;
-      const quantiteOriginale = lignesOriginalesEdition.find((l) => l.produit_id === produitId)?.quantite ?? 0;
-      const quantiteNouvelle = lignesEdition.find((l) => l.produit_id === produitId)?.quantite ?? 0;
-      const nouveauStock = Math.max(0, produit.quantite_stock + quantiteOriginale - quantiteNouvelle);
-      await supabase.from('pharmacie_produits').update({ quantite_stock: nouveauStock }).eq('id', produitId);
-    }
-
-    showToast('success', 'Reçu modifié avec succès.');
-    setEnregistrementEdition(false);
-    annulerEditionVente();
     loadAll();
   }
 
@@ -609,118 +431,25 @@ export default function PharmaciePage() {
             <h3 style={{ marginTop: 0 }}>Ventes récentes</h3>
             <table className="table">
               <thead>
-                <tr><th>Date</th><th>Mode</th><th>Total</th><th></th></tr>
+                <tr><th>Date</th><th>Mode</th><th>Total</th></tr>
               </thead>
               <tbody>
                 {ventes.length === 0 ? (
-                  <tr><td colSpan={4} style={{ padding: '12px 0', color: 'var(--text-mid)' }}>Aucune vente pour l'instant.</td></tr>
+                  <tr><td colSpan={3} style={{ padding: '12px 0', color: 'var(--text-mid)' }}>Aucune vente pour l'instant.</td></tr>
                 ) : (
                   ventes.map((v) => (
                     <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td>{new Date(v.created_at).toLocaleString('fr-FR')}</td>
                       <td style={{ textTransform: 'capitalize' }}>{v.mode_paiement.replace('_', ' ')}</td>
                       <td>{v.total.toLocaleString('fr-FR')} F</td>
-                      <td>
-                        <button type="button" className="secondary" onClick={() => ouvrirEditionVente(v.id)}>
-                          Modifier
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-
-            {venteEnEdition && (
-              <div className="card" style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <strong>Modifier le reçu</strong>
-                  <button type="button" className="secondary" onClick={annulerEditionVente}>
-                    Fermer
-                  </button>
-                </div>
-
-                <table className="table">
-                  <thead>
-                    <tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Sous-total</th><th></th></tr>
-                  </thead>
-                  <tbody>
-                    {lignesEdition.map((l) => (
-                      <tr key={l.produit_id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td>{l.nom}</td>
-                        <td>
-                          <input
-                            type="number"
-                            min={1}
-                            max={stockDisponiblePour(l.produit_id)}
-                            value={l.quantite}
-                            onChange={(e) => modifierQuantiteEdition(l.produit_id, Number(e.target.value) || 1)}
-                            style={{ width: 70 }}
-                          />
-                        </td>
-                        <td>{l.prix_unitaire.toLocaleString('fr-FR')} F</td>
-                        <td>{(l.quantite * l.prix_unitaire).toLocaleString('fr-FR')} F</td>
-                        <td>
-                          <button type="button" className="secondary" onClick={() => retirerLigneEdition(l.produit_id)}>
-                            Retirer
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'end', marginTop: 12 }}>
-                  <div className="field">
-                    <label>Ajouter un produit</label>
-                    <select value={produitAjoutEdition} onChange={(e) => setProduitAjoutEdition(e.target.value)}>
-                      <option value="">— Choisir —</option>
-                      {produits.map((p) => (
-                        <option key={p.id} value={p.id} disabled={stockDisponiblePour(p.id) <= 0}>
-                          {p.nom} ({stockDisponiblePour(p.id)} dispo) — {p.prix_vente.toLocaleString('fr-FR')} F
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button type="button" onClick={ajouterLigneAEdition} disabled={!produitAjoutEdition}>
-                    Ajouter
-                  </button>
-                </div>
-                <div className="field" style={{ marginTop: 12 }}>
-                  <label>Quantité à ajouter</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={quantiteAjoutEdition}
-                    onChange={(e) => setQuantiteAjoutEdition(e.target.value)}
-                    style={{ width: 100 }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0' }}>
-                  <strong>Nouveau total</strong>
-                  <strong style={{ fontSize: '1.2rem', color: 'var(--gold)' }}>
-                    {totalEdition.toLocaleString('fr-FR')} F
-                  </strong>
-                </div>
-                <div className="field">
-                  <label>Mode de paiement</label>
-                  <select value={modePaiementEdition} onChange={(e) => setModePaiementEdition(e.target.value)}>
-                    <option value="especes">Espèces</option>
-                    <option value="mobile_money">Mobile Money</option>
-                    <option value="assurance">Assurance</option>
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  onClick={enregistrerEditionVente}
-                  disabled={lignesEdition.length === 0 || enregistrementEdition}
-                  style={{ width: '100%', marginTop: 12 }}
-                >
-                  {enregistrementEdition ? 'Enregistrement…' : 'Enregistrer les modifications'}
-                </button>
-              </div>
-            )}
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-mid)', marginTop: 8 }}>
+              Une vente validée est définitive et ne peut plus être modifiée.
+            </p>
           </div>
         </div>
       )}
