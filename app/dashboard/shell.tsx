@@ -84,7 +84,7 @@ export default function DashboardShell({
                 {m.label}
               </span>
               {!m.ready && (
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-mid)' }}>BientÃ´t</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-mid)' }}>Bientôt</span>
               )}
             </Link>
           );
@@ -94,7 +94,7 @@ export default function DashboardShell({
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 14 }}>
         <div style={{ fontSize: '0.85rem', marginBottom: 10 }}>{userName}</div>
         <button className="secondary" onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <LogOut size={15} /> Se dÃ©connecter
+          <LogOut size={15} /> Se déconnecter
         </button>
       </div>
     </>
