@@ -7,15 +7,15 @@ const MODULES: { href: string; label: string; ready: true; domaine: Domaine | 'c
   { href: '/dashboard', label: 'Tableau de bord', ready: true, domaine: 'commun' },
   { href: '/dashboard/chantiers', label: 'Chantiers & planning', ready: true, domaine: 'btp' },
   { href: '/dashboard/devis', label: 'DQE / Devis / Factures', ready: true, domaine: 'btp' },
-  { href: '/dashboard/budget', label: 'Budget & dÃ©penses', ready: true, domaine: 'btp' },
+  { href: '/dashboard/budget', label: 'Budget & dépenses', ready: true, domaine: 'btp' },
   { href: '/dashboard/achats', label: 'Achats & demandes', ready: true, domaine: 'btp' },
-  { href: '/dashboard/stock', label: 'Stocks & matÃ©riaux', ready: true, domaine: 'btp' },
-  { href: '/dashboard/rh', label: 'RH / Ouvriers / TÃ¢cherons', ready: true, domaine: 'btp' },
+  { href: '/dashboard/stock', label: 'Stocks & matériaux', ready: true, domaine: 'btp' },
+  { href: '/dashboard/rh', label: 'RH / Ouvriers / Tâcherons', ready: true, domaine: 'btp' },
   { href: '/dashboard/prestataires', label: 'Prestataires / Sous-traitants', ready: true, domaine: 'btp' },
   { href: '/dashboard/engins', label: 'Engins & carburant', ready: true, domaine: 'btp' },
   { href: '/dashboard/rapports', label: 'Situations & rapports', ready: true, domaine: 'btp' },
   { href: '/dashboard/pharmacie', label: 'Pharmacie', ready: true, domaine: 'pharmacie' },
-  { href: '/dashboard/equipe', label: 'Ã‰quipe', ready: true, domaine: 'commun' },
+  { href: '/dashboard/equipe', label: 'Équipe', ready: true, domaine: 'commun' },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
