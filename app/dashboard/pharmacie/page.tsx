@@ -26,6 +26,7 @@ type Vente = {
   assurance_numero_adherent: string | null;
   assurance_numero_bon: string | null;
   assurance_taux_couverture: number | null;
+  assurance_patient_nom: string | null;
 };
 
 type LignePanier = { produit_id: string; nom: string; quantite: number; prix_unitaire: number };
@@ -69,6 +70,7 @@ export default function PharmaciePage() {
   const [assuranceNumeroAdherent, setAssuranceNumeroAdherent] = useState('');
   const [assuranceNumeroBon, setAssuranceNumeroBon] = useState('');
   const [assuranceTauxCouverture, setAssuranceTauxCouverture] = useState('100');
+  const [assurancePatientNom, setAssurancePatientNom] = useState('');
 
   async function loadAll() {
     setLoading(true);
@@ -76,7 +78,7 @@ export default function PharmaciePage() {
       supabase.from('pharmacie_produits').select('*').order('nom'),
       supabase
         .from('pharmacie_ventes')
-        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture')
+        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture, assurance_patient_nom')
         .order('created_at', { ascending: false })
         .limit(15),
     ]);
@@ -197,6 +199,7 @@ export default function PharmaciePage() {
         assurance_numero_bon: modePaiement === 'assurance' ? (assuranceNumeroBon.trim() || null) : null,
         assurance_taux_couverture: modePaiement === 'assurance' ? tauxCouvertureNum : null,
         assurance_montant_couvert: modePaiement === 'assurance' ? montantPrisEnCharge : null,
+        assurance_patient_nom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
       })
       .select('id')
       .single();
@@ -237,6 +240,7 @@ export default function PharmaciePage() {
     setAssuranceNumeroAdherent('');
     setAssuranceNumeroBon('');
     setAssuranceTauxCouverture('100');
+    setAssurancePatientNom('');
     loadAll();
   }
 
@@ -478,6 +482,14 @@ export default function PharmaciePage() {
                         />
                       </div>
                     </div>
+                    <div className="field">
+                      <label>Nom du malade (si différent de l'adhérent)</label>
+                      <input
+                        value={assurancePatientNom}
+                        onChange={(e) => setAssurancePatientNom(e.target.value)}
+                        placeholder="optionnel — nom de la personne qui utilise le bon"
+                      />
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div className="field">
                         <label>N° de bon / prise en charge</label>
@@ -536,6 +548,7 @@ export default function PharmaciePage() {
                             {v.assurance_nom}
                             {v.assurance_numero_adherent ? ` — ${v.assurance_numero_adherent}` : ''}
                             {v.assurance_taux_couverture != null ? ` (${v.assurance_taux_couverture}%)` : ''}
+                            {v.assurance_patient_nom ? ` · Malade : ${v.assurance_patient_nom}` : ''}
                           </div>
                         )}
                       </td>
