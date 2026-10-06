@@ -40,6 +40,23 @@ const OPERATEURS_MOBILE_MONEY = [
 
 type LignePanier = { produit_id: string; nom: string; quantite: number; prix_unitaire: number };
 
+type LigneRecu = { nom: string; quantite: number; prix_unitaire: number };
+
+type Recu = {
+  numero: string;
+  date: string;
+  lignes: LigneRecu[];
+  total: number;
+  modePaiement: string;
+  assuranceNom?: string | null;
+  assuranceNumeroAdherent?: string | null;
+  assuranceNumeroBon?: string | null;
+  assuranceTauxCouverture?: number | null;
+  assurancePatientNom?: string | null;
+  mobileMoneyOperateur?: string | null;
+  mobileMoneyNumero?: string | null;
+};
+
 const AUJOURDHUI = () => new Date().toISOString().slice(0, 10);
 const DANS_30_JOURS = () => {
   const d = new Date();
@@ -84,6 +101,23 @@ export default function PharmaciePage() {
   // Détails mobile money (visibles uniquement si mode de paiement = mobile_money)
   const [mobileMoneyOperateur, setMobileMoneyOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
   const [mobileMoneyNumero, setMobileMoneyNumero] = useState('');
+
+  // Reçu affiché/imprimable (vente qui vient d'être validée, ou vente passée)
+  const [recu, setRecu] = useState<Recu | null>(null);
+  const [orgName, setOrgName] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organizations(name)')
+        .eq('id', user.id)
+        .single();
+      setOrgName((profile as any)?.organizations?.name ?? '');
+    })();
+  }, []);
 
   async function loadAll() {
     setLoading(true);
@@ -180,6 +214,32 @@ export default function PharmaciePage() {
     setPanier((prev) => prev.filter((l) => l.produit_id !== produitId));
   }
 
+  async function imprimerVentePassee(v: Vente) {
+    const { data: lignes } = await supabase
+      .from('pharmacie_vente_lignes')
+      .select('quantite, prix_unitaire, pharmacie_produits(nom)')
+      .eq('vente_id', v.id);
+
+    setRecu({
+      numero: v.id.slice(0, 8).toUpperCase(),
+      date: v.created_at,
+      lignes: (lignes ?? []).map((l: any) => ({
+        nom: l.pharmacie_produits?.nom ?? '—',
+        quantite: l.quantite,
+        prix_unitaire: l.prix_unitaire,
+      })),
+      total: v.total,
+      modePaiement: v.mode_paiement,
+      assuranceNom: v.assurance_nom,
+      assuranceNumeroAdherent: v.assurance_numero_adherent,
+      assuranceNumeroBon: v.assurance_numero_bon,
+      assuranceTauxCouverture: v.assurance_taux_couverture,
+      assurancePatientNom: v.assurance_patient_nom,
+      mobileMoneyOperateur: v.mobile_money_operateur,
+      mobileMoneyNumero: v.mobile_money_numero,
+    });
+  }
+
   const totalPanier = useMemo(
     () => panier.reduce((s, l) => s + l.quantite * l.prix_unitaire, 0),
     [panier]
@@ -254,6 +314,22 @@ export default function PharmaciePage() {
     }
 
     showToast('success', `Vente enregistrée — ${totalPanier.toLocaleString('fr-FR')} F`);
+
+    setRecu({
+      numero: vente.id.slice(0, 8).toUpperCase(),
+      date: new Date().toISOString(),
+      lignes: panier.map((l) => ({ nom: l.nom, quantite: l.quantite, prix_unitaire: l.prix_unitaire })),
+      total: totalPanier,
+      modePaiement,
+      assuranceNom: modePaiement === 'assurance' ? assuranceNom.trim() : null,
+      assuranceNumeroAdherent: modePaiement === 'assurance' ? assuranceNumeroAdherent.trim() : null,
+      assuranceNumeroBon: modePaiement === 'assurance' ? (assuranceNumeroBon.trim() || null) : null,
+      assuranceTauxCouverture: modePaiement === 'assurance' ? tauxCouvertureNum : null,
+      assurancePatientNom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
+      mobileMoneyOperateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
+      mobileMoneyNumero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
+    });
+
     setPanier([]);
     setModePaiement('especes');
     setAssuranceNom('');
@@ -583,11 +659,11 @@ export default function PharmaciePage() {
             <h3 style={{ marginTop: 0 }}>Ventes récentes</h3>
             <table className="table">
               <thead>
-                <tr><th>Date</th><th>Mode</th><th>Total</th></tr>
+                <tr><th>Date</th><th>Mode</th><th>Total</th><th></th></tr>
               </thead>
               <tbody>
                 {ventes.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '12px 0', color: 'var(--text-mid)' }}>Aucune vente pour l'instant.</td></tr>
+                  <tr><td colSpan={4} style={{ padding: '12px 0', color: 'var(--text-mid)' }}>Aucune vente pour l'instant.</td></tr>
                 ) : (
                   ventes.map((v) => (
                     <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -610,6 +686,11 @@ export default function PharmaciePage() {
                         )}
                       </td>
                       <td>{v.total.toLocaleString('fr-FR')} F</td>
+                      <td>
+                        <button type="button" className="secondary" onClick={() => imprimerVentePassee(v)}>
+                          Reçu
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -621,6 +702,116 @@ export default function PharmaciePage() {
           </div>
         </div>
       )}
+
+      {recu && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div style={{ background: '#fff', color: '#111', borderRadius: 8, padding: 24, width: 360, maxHeight: '90vh', overflow: 'auto' }}>
+            <div id="zone-impression">
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <strong style={{ fontSize: '1.05rem' }}>{orgName || 'Pharmacie'}</strong>
+                <div style={{ fontSize: '0.8rem' }}>Reçu de vente</div>
+              </div>
+              <div style={{ fontSize: '0.8rem', marginBottom: 8 }}>
+                <div>N° {recu.numero}</div>
+                <div>{new Date(recu.date).toLocaleString('fr-FR')}</div>
+              </div>
+              <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #000' }}>
+                    <th style={{ textAlign: 'left' }}>Produit</th>
+                    <th>Qté</th>
+                    <th>P.U.</th>
+                    <th>S/total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recu.lignes.map((l, i) => (
+                    <tr key={i}>
+                      <td>{l.nom}</td>
+                      <td style={{ textAlign: 'center' }}>{l.quantite}</td>
+                      <td style={{ textAlign: 'right' }}>{l.prix_unitaire.toLocaleString('fr-FR')}</td>
+                      <td style={{ textAlign: 'right' }}>{(l.quantite * l.prix_unitaire).toLocaleString('fr-FR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontWeight: 700,
+                  marginTop: 8,
+                  borderTop: '1px solid #000',
+                  paddingTop: 8,
+                }}
+              >
+                <span>Total</span>
+                <span>{recu.total.toLocaleString('fr-FR')} F</span>
+              </div>
+              <div style={{ fontSize: '0.8rem', marginTop: 8, textTransform: 'capitalize' }}>
+                Paiement : {recu.modePaiement.replace('_', ' ')}
+              </div>
+              {recu.modePaiement === 'mobile_money' && recu.mobileMoneyOperateur && (
+                <div style={{ fontSize: '0.75rem' }}>
+                  {recu.mobileMoneyOperateur}
+                  {recu.mobileMoneyNumero ? ` — ${recu.mobileMoneyNumero}` : ''}
+                </div>
+              )}
+              {recu.modePaiement === 'assurance' && recu.assuranceNom && (
+                <div style={{ fontSize: '0.75rem' }}>
+                  {recu.assuranceNom}
+                  {recu.assuranceNumeroAdherent ? ` — ${recu.assuranceNumeroAdherent}` : ''}
+                  {recu.assuranceTauxCouverture != null ? ` (${recu.assuranceTauxCouverture}%)` : ''}
+                  {recu.assurancePatientNom ? ` · Malade : ${recu.assurancePatientNom}` : ''}
+                </div>
+              )}
+              <div style={{ textAlign: 'center', fontSize: '0.75rem', marginTop: 16 }}>Merci de votre visite</div>
+            </div>
+
+            <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="button" onClick={() => window.print()} style={{ flex: 1 }}>
+                Imprimer
+              </button>
+              <button type="button" className="secondary" onClick={() => setRecu(null)} style={{ flex: 1 }}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #zone-impression,
+          #zone-impression * {
+            visibility: visible;
+          }
+          #zone-impression {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 16px;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
