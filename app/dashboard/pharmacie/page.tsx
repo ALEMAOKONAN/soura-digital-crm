@@ -22,6 +22,10 @@ type Vente = {
   total: number;
   mode_paiement: string;
   created_at: string;
+  assurance_nom: string | null;
+  assurance_numero_adherent: string | null;
+  assurance_numero_bon: string | null;
+  assurance_taux_couverture: number | null;
 };
 
 type LignePanier = { produit_id: string; nom: string; quantite: number; prix_unitaire: number };
@@ -60,11 +64,21 @@ export default function PharmaciePage() {
   const [panier, setPanier] = useState<LignePanier[]>([]);
   const [modePaiement, setModePaiement] = useState('especes');
 
+  // Détails assurance (visibles uniquement si mode de paiement = assurance)
+  const [assuranceNom, setAssuranceNom] = useState('');
+  const [assuranceNumeroAdherent, setAssuranceNumeroAdherent] = useState('');
+  const [assuranceNumeroBon, setAssuranceNumeroBon] = useState('');
+  const [assuranceTauxCouverture, setAssuranceTauxCouverture] = useState('100');
+
   async function loadAll() {
     setLoading(true);
     const [{ data: p }, { data: v }] = await Promise.all([
       supabase.from('pharmacie_produits').select('*').order('nom'),
-      supabase.from('pharmacie_ventes').select('id, total, mode_paiement, created_at').order('created_at', { ascending: false }).limit(15),
+      supabase
+        .from('pharmacie_ventes')
+        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture')
+        .order('created_at', { ascending: false })
+        .limit(15),
     ]);
     setProduits(p ?? []);
     setVentes(v ?? []);
@@ -156,8 +170,18 @@ export default function PharmaciePage() {
     [panier]
   );
 
+  const tauxCouvertureNum = Math.min(100, Math.max(0, Number(assuranceTauxCouverture) || 0));
+  const montantPrisEnCharge = modePaiement === 'assurance' ? Math.round(totalPanier * (tauxCouvertureNum / 100)) : 0;
+  const resteACharge = totalPanier - montantPrisEnCharge;
+
   async function validerVente() {
     if (panier.length === 0) return;
+
+    if (modePaiement === 'assurance' && (!assuranceNom.trim() || !assuranceNumeroAdherent.trim())) {
+      showToast('error', "Renseigne au moins le nom de l'assurance et le n° d'adhérent.");
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user!.id).single();
 
@@ -168,6 +192,11 @@ export default function PharmaciePage() {
         total: totalPanier,
         mode_paiement: modePaiement,
         vendeur_id: user!.id,
+        assurance_nom: modePaiement === 'assurance' ? assuranceNom.trim() : null,
+        assurance_numero_adherent: modePaiement === 'assurance' ? assuranceNumeroAdherent.trim() : null,
+        assurance_numero_bon: modePaiement === 'assurance' ? (assuranceNumeroBon.trim() || null) : null,
+        assurance_taux_couverture: modePaiement === 'assurance' ? tauxCouvertureNum : null,
+        assurance_montant_couvert: modePaiement === 'assurance' ? montantPrisEnCharge : null,
       })
       .select('id')
       .single();
@@ -204,6 +233,10 @@ export default function PharmaciePage() {
     showToast('success', `Vente enregistrée — ${totalPanier.toLocaleString('fr-FR')} F`);
     setPanier([]);
     setModePaiement('especes');
+    setAssuranceNom('');
+    setAssuranceNumeroAdherent('');
+    setAssuranceNumeroBon('');
+    setAssuranceTauxCouverture('100');
     loadAll();
   }
 
@@ -420,7 +453,63 @@ export default function PharmaciePage() {
                     <option value="assurance">Assurance</option>
                   </select>
                 </div>
-                <button type="button" onClick={validerVente} style={{ width: '100%' }}>
+
+                {modePaiement === 'assurance' && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
+                      Détails de la prise en charge
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="field">
+                        <label>Compagnie d'assurance</label>
+                        <input
+                          value={assuranceNom}
+                          onChange={(e) => setAssuranceNom(e.target.value)}
+                          placeholder="ex. NSIA, SUNU, ASACI…"
+                          required
+                        />
+                      </div>
+                      <div className="field">
+                        <label>N° d'adhérent / carte</label>
+                        <input
+                          value={assuranceNumeroAdherent}
+                          onChange={(e) => setAssuranceNumeroAdherent(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="field">
+                        <label>N° de bon / prise en charge</label>
+                        <input
+                          value={assuranceNumeroBon}
+                          onChange={(e) => setAssuranceNumeroBon(e.target.value)}
+                          placeholder="optionnel"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Taux de prise en charge (%)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={assuranceTauxCouverture}
+                          onChange={(e) => setAssuranceTauxCouverture(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: 8 }}>
+                      <span>Pris en charge par l'assurance</span>
+                      <strong>{montantPrisEnCharge.toLocaleString('fr-FR')} F</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span>Reste à la charge du patient</span>
+                      <strong>{resteACharge.toLocaleString('fr-FR')} F</strong>
+                    </div>
+                  </div>
+                )}
+
+                <button type="button" onClick={validerVente} style={{ width: '100%', marginTop: 12 }}>
                   Valider la vente
                 </button>
               </div>
@@ -440,7 +529,16 @@ export default function PharmaciePage() {
                   ventes.map((v) => (
                     <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td>{new Date(v.created_at).toLocaleString('fr-FR')}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{v.mode_paiement.replace('_', ' ')}</td>
+                      <td style={{ textTransform: 'capitalize' }}>
+                        {v.mode_paiement.replace('_', ' ')}
+                        {v.mode_paiement === 'assurance' && v.assurance_nom && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-mid)', textTransform: 'none' }}>
+                            {v.assurance_nom}
+                            {v.assurance_numero_adherent ? ` — ${v.assurance_numero_adherent}` : ''}
+                            {v.assurance_taux_couverture != null ? ` (${v.assurance_taux_couverture}%)` : ''}
+                          </div>
+                        )}
+                      </td>
                       <td>{v.total.toLocaleString('fr-FR')} F</td>
                     </tr>
                   ))
