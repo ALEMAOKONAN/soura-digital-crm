@@ -27,7 +27,16 @@ type Vente = {
   assurance_numero_bon: string | null;
   assurance_taux_couverture: number | null;
   assurance_patient_nom: string | null;
+  mobile_money_operateur: string | null;
+  mobile_money_numero: string | null;
 };
+
+const OPERATEURS_MOBILE_MONEY = [
+  'Orange Money',
+  'MTN Mobile Money',
+  'Moov Money',
+  'Wave',
+];
 
 type LignePanier = { produit_id: string; nom: string; quantite: number; prix_unitaire: number };
 
@@ -72,13 +81,17 @@ export default function PharmaciePage() {
   const [assuranceTauxCouverture, setAssuranceTauxCouverture] = useState('100');
   const [assurancePatientNom, setAssurancePatientNom] = useState('');
 
+  // Détails mobile money (visibles uniquement si mode de paiement = mobile_money)
+  const [mobileMoneyOperateur, setMobileMoneyOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
+  const [mobileMoneyNumero, setMobileMoneyNumero] = useState('');
+
   async function loadAll() {
     setLoading(true);
     const [{ data: p }, { data: v }] = await Promise.all([
       supabase.from('pharmacie_produits').select('*').order('nom'),
       supabase
         .from('pharmacie_ventes')
-        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture, assurance_patient_nom')
+        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture, assurance_patient_nom, mobile_money_operateur, mobile_money_numero')
         .order('created_at', { ascending: false })
         .limit(15),
     ]);
@@ -184,6 +197,11 @@ export default function PharmaciePage() {
       return;
     }
 
+    if (modePaiement === 'mobile_money' && !mobileMoneyOperateur) {
+      showToast('error', "Choisis l'opérateur mobile money.");
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user!.id).single();
 
@@ -200,6 +218,8 @@ export default function PharmaciePage() {
         assurance_taux_couverture: modePaiement === 'assurance' ? tauxCouvertureNum : null,
         assurance_montant_couvert: modePaiement === 'assurance' ? montantPrisEnCharge : null,
         assurance_patient_nom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
+        mobile_money_operateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
+        mobile_money_numero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
       })
       .select('id')
       .single();
@@ -241,6 +261,8 @@ export default function PharmaciePage() {
     setAssuranceNumeroBon('');
     setAssuranceTauxCouverture('100');
     setAssurancePatientNom('');
+    setMobileMoneyOperateur(OPERATEURS_MOBILE_MONEY[0]);
+    setMobileMoneyNumero('');
     loadAll();
   }
 
@@ -458,6 +480,35 @@ export default function PharmaciePage() {
                   </select>
                 </div>
 
+                {modePaiement === 'mobile_money' && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
+                      Détails du paiement mobile money
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="field">
+                        <label>Opérateur</label>
+                        <select
+                          value={mobileMoneyOperateur}
+                          onChange={(e) => setMobileMoneyOperateur(e.target.value)}
+                        >
+                          {OPERATEURS_MOBILE_MONEY.map((op) => (
+                            <option key={op} value={op}>{op}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>N° de transaction / téléphone (optionnel)</label>
+                        <input
+                          value={mobileMoneyNumero}
+                          onChange={(e) => setMobileMoneyNumero(e.target.value)}
+                          placeholder="ex. 07 00 00 00 00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {modePaiement === 'assurance' && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
@@ -543,6 +594,12 @@ export default function PharmaciePage() {
                       <td>{new Date(v.created_at).toLocaleString('fr-FR')}</td>
                       <td style={{ textTransform: 'capitalize' }}>
                         {v.mode_paiement.replace('_', ' ')}
+                        {v.mode_paiement === 'mobile_money' && v.mobile_money_operateur && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-mid)', textTransform: 'none' }}>
+                            {v.mobile_money_operateur}
+                            {v.mobile_money_numero ? ` — ${v.mobile_money_numero}` : ''}
+                          </div>
+                        )}
                         {v.mode_paiement === 'assurance' && v.assurance_nom && (
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-mid)', textTransform: 'none' }}>
                             {v.assurance_nom}
