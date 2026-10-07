@@ -259,7 +259,7 @@ export default function PharmaciePage() {
   const resteACharge = totalPanier - montantPrisEnCharge;
 
   const montantRecuNum = Number(montantRecu) || 0;
-  const monnaieARendre = modePaiement === 'especes' && montantRecu.trim() !== '' ? Math.max(0, montantRecuNum - totalPanier) : 0;
+  const monnaieARendre = modePaiement === 'especes' ? Math.max(0, montantRecuNum - totalPanier) : 0;
 
   async function validerVente() {
     if (panier.length === 0) return;
@@ -274,7 +274,12 @@ export default function PharmaciePage() {
       return;
     }
 
-    if (modePaiement === 'especes' && montantRecu.trim() !== '' && montantRecuNum < totalPanier) {
+    if (modePaiement === 'especes' && montantRecu.trim() === '') {
+      showToast('error', "Indique le montant reçu du client.");
+      return;
+    }
+
+    if (modePaiement === 'especes' && montantRecuNum < totalPanier) {
       showToast('error', 'Le montant reçu est inférieur au total de la vente.');
       return;
     }
@@ -297,8 +302,8 @@ export default function PharmaciePage() {
         assurance_patient_nom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
         mobile_money_operateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
         mobile_money_numero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
-        montant_recu: modePaiement === 'especes' && montantRecu.trim() !== '' ? montantRecuNum : null,
-        monnaie_rendue: modePaiement === 'especes' && montantRecu.trim() !== '' ? monnaieARendre : null,
+        montant_recu: modePaiement === 'especes' ? montantRecuNum : null,
+        monnaie_rendue: modePaiement === 'especes' ? monnaieARendre : null,
       })
       .select('id')
       .single();
@@ -347,8 +352,8 @@ export default function PharmaciePage() {
       assurancePatientNom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
       mobileMoneyOperateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
       mobileMoneyNumero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
-      montantRecu: modePaiement === 'especes' && montantRecu.trim() !== '' ? montantRecuNum : null,
-      monnaieRendue: modePaiement === 'especes' && montantRecu.trim() !== '' ? monnaieARendre : null,
+      montantRecu: modePaiement === 'especes' ? montantRecuNum : null,
+      monnaieRendue: modePaiement === 'especes' ? monnaieARendre : null,
     });
 
     setPanier([]);
@@ -581,7 +586,7 @@ export default function PharmaciePage() {
                 {modePaiement === 'especes' && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
-                      Rendu de monnaie (optionnel)
+                      Rendu de monnaie
                     </div>
                     <div className="field">
                       <label>Montant reçu du client (F)</label>
@@ -591,14 +596,13 @@ export default function PharmaciePage() {
                         value={montantRecu}
                         onChange={(e) => setMontantRecu(e.target.value)}
                         placeholder={`ex. ${totalPanier}`}
+                        required
                       />
                     </div>
-                    {montantRecu.trim() !== '' && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: 8 }}>
-                        <span>Monnaie à rendre</span>
-                        <strong>{monnaieARendre.toLocaleString('fr-FR')} F</strong>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: 8 }}>
+                      <span>Monnaie à rendre</span>
+                      <strong>{montantRecu.trim() !== '' ? monnaieARendre.toLocaleString('fr-FR') : '—'} F</strong>
+                    </div>
                   </div>
                 )}
 
