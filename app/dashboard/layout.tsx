@@ -38,7 +38,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const orgName = (profile as any)?.organizations?.name ?? '';
   const secteur = (profile as any)?.organizations?.secteur ?? 'general';
   const domaine = domainePourSecteur(secteur);
-  const modulesVisibles = MODULES.filter((m) => m.domaine === 'commun' || m.domaine === domaine);
+  const estAdmin = profile?.role === 'admin';
+
+  // Le tableau de bord et l'équipe sont réservés aux administrateurs ;
+  // un employé ne voit que les modules métier de son entreprise.
+  const modulesVisibles = MODULES.filter((m) =>
+    m.domaine === 'commun' ? estAdmin : m.domaine === domaine
+  );
 
   return (
     <DashboardShell modules={modulesVisibles} orgName={orgName} userName={profile?.full_name ?? user.email ?? ''}>

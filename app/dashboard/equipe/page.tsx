@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Copy, Check, ShieldCheck, ShieldOff, UserX, UserCheck } from 'lucide-react';
 import { useToast } from '@/lib/toast';
@@ -18,6 +19,7 @@ const PHARMACIE_ROLE_LABEL: Record<string, string> = {
 
 export default function EquipePage() {
   const supabase = createClient();
+  const router = useRouter();
   const { showToast } = useToast();
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [membres, setMembres] = useState<Membre[]>([]);
@@ -36,6 +38,13 @@ export default function EquipePage() {
       .select('organization_id, role')
       .eq('id', user!.id)
       .single();
+
+    // La page Équipe est réservée aux administrateurs ; un employé qui
+    // tape directement l'URL est renvoyé vers son tableau de bord.
+    if (monProfil?.role !== 'admin') {
+      router.replace('/dashboard');
+      return;
+    }
 
     setMonId(user!.id);
     setMonRole(monProfil?.role ?? null);
