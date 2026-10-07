@@ -10,7 +10,11 @@ import { domainePourSecteur } from '@/lib/secteurs';
 type Membre = { id: string; full_name: string | null; role: string; actif: boolean; pharmacie_role: string | null };
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', membre: 'Membre' };
-const PHARMACIE_ROLE_LABEL: Record<string, string> = { caisse: 'Caisse', stock: 'Stock' };
+const PHARMACIE_ROLE_LABEL: Record<string, string> = {
+  caisse: 'Caisse',
+  stock: 'Stock',
+  commande: 'Chargé(e) de commande',
+};
 
 export default function EquipePage() {
   const supabase = createClient();
@@ -174,6 +178,7 @@ export default function EquipePage() {
                         <option value="">Aucun accès</option>
                         <option value="caisse">Caisse</option>
                         <option value="stock">Stock</option>
+                        <option value="commande">Chargé(e) de commande</option>
                       </select>
                     ) : (
                       <span style={{ fontSize: '0.85rem', color: m.pharmacie_role ? 'var(--text-hi)' : 'var(--text-mid)' }}>
