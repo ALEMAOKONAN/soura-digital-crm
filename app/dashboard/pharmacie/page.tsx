@@ -14,6 +14,7 @@ type Produit = {
   date_peremption: string | null;
   quantite_stock: number;
   seuil_alerte: number;
+  prix_achat: number;
   prix_vente: number;
 };
 
@@ -165,6 +166,59 @@ export default function PharmaciePage() {
 
   async function handleCreateProduit(e: React.FormEvent) {
     e.preventDefault();
+
+    const quantiteSaisie = Number(quantiteStock) || 0;
+    const prixAchatSaisi = Number(prixAchat) || 0;
+
+    const produitExistant = produits.find(
+      (p) => p.nom.trim().toLowerCase() === nom.trim().toLowerCase()
+    );
+
+    // Produit déjà en stock : on ré-approvisionne au lieu de créer un doublon.
+    if (produitExistant) {
+      let nouveauPrixAchat = produitExistant.prix_achat;
+
+      if (prixAchatSaisi !== produitExistant.prix_achat) {
+        const accepteNouveauPrix = window.confirm(
+          `"${produitExistant.nom}" est déjà en stock avec un prix d'achat de ${produitExistant.prix_achat.toLocaleString('fr-FR')} F.\n` +
+            `Tu as saisi ${prixAchatSaisi.toLocaleString('fr-FR')} F.\n\n` +
+            `Mettre à jour le prix d'achat avec cette nouvelle valeur ? (La quantité sera ajoutée dans tous les cas.)`
+        );
+        if (accepteNouveauPrix) {
+          nouveauPrixAchat = prixAchatSaisi;
+        }
+      }
+
+      const { error } = await supabase
+        .from('pharmacie_produits')
+        .update({
+          quantite_stock: produitExistant.quantite_stock + quantiteSaisie,
+          prix_achat: nouveauPrixAchat,
+          prix_vente: Number(prixVente) || produitExistant.prix_vente,
+          dci: dci || produitExistant.dci,
+          forme: forme || produitExistant.forme,
+          lot: lot || produitExistant.lot,
+          date_peremption: datePeremption || produitExistant.date_peremption,
+          seuil_alerte: Number(seuilAlerte) || produitExistant.seuil_alerte,
+        })
+        .eq('id', produitExistant.id);
+
+      if (error) {
+        showToast('error', "Impossible de mettre à jour le stock de ce produit.");
+        return;
+      }
+      showToast(
+        'success',
+        `"${produitExistant.nom}" réapprovisionné — +${quantiteSaisie} (total : ${produitExistant.quantite_stock + quantiteSaisie}).`
+      );
+
+      setNom(''); setDci(''); setForme(''); setLot(''); setDatePeremption('');
+      setQuantiteStock('0'); setSeuilAlerte('10'); setPrixAchat('0'); setPrixVente('0');
+      setShowProduitForm(false);
+      loadAll();
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user!.id).single();
 
@@ -175,9 +229,9 @@ export default function PharmaciePage() {
       forme: forme || null,
       lot: lot || null,
       date_peremption: datePeremption || null,
-      quantite_stock: Number(quantiteStock) || 0,
+      quantite_stock: quantiteSaisie,
       seuil_alerte: Number(seuilAlerte) || 0,
-      prix_achat: Number(prixAchat) || 0,
+      prix_achat: prixAchatSaisi,
       prix_vente: Number(prixVente) || 0,
       created_by: user!.id,
     });
