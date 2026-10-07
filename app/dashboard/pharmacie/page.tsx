@@ -29,6 +29,8 @@ type Vente = {
   assurance_patient_nom: string | null;
   mobile_money_operateur: string | null;
   mobile_money_numero: string | null;
+  montant_recu: number | null;
+  monnaie_rendue: number | null;
 };
 
 const OPERATEURS_MOBILE_MONEY = [
@@ -55,6 +57,8 @@ type Recu = {
   assurancePatientNom?: string | null;
   mobileMoneyOperateur?: string | null;
   mobileMoneyNumero?: string | null;
+  montantRecu?: number | null;
+  monnaieRendue?: number | null;
 };
 
 const AUJOURDHUI = () => new Date().toISOString().slice(0, 10);
@@ -102,6 +106,9 @@ export default function PharmaciePage() {
   const [mobileMoneyOperateur, setMobileMoneyOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
   const [mobileMoneyNumero, setMobileMoneyNumero] = useState('');
 
+  // Rendu de monnaie (visible uniquement si mode de paiement = espèces)
+  const [montantRecu, setMontantRecu] = useState('');
+
   // Reçu affiché/imprimable (vente qui vient d'être validée, ou vente passée)
   const [recu, setRecu] = useState<Recu | null>(null);
   const [orgName, setOrgName] = useState('');
@@ -125,7 +132,7 @@ export default function PharmaciePage() {
       supabase.from('pharmacie_produits').select('*').order('nom'),
       supabase
         .from('pharmacie_ventes')
-        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture, assurance_patient_nom, mobile_money_operateur, mobile_money_numero')
+        .select('id, total, mode_paiement, created_at, assurance_nom, assurance_numero_adherent, assurance_numero_bon, assurance_taux_couverture, assurance_patient_nom, mobile_money_operateur, mobile_money_numero, montant_recu, monnaie_rendue')
         .order('created_at', { ascending: false })
         .limit(15),
     ]);
@@ -237,6 +244,8 @@ export default function PharmaciePage() {
       assurancePatientNom: v.assurance_patient_nom,
       mobileMoneyOperateur: v.mobile_money_operateur,
       mobileMoneyNumero: v.mobile_money_numero,
+      montantRecu: v.montant_recu,
+      monnaieRendue: v.monnaie_rendue,
     });
   }
 
@@ -249,6 +258,9 @@ export default function PharmaciePage() {
   const montantPrisEnCharge = modePaiement === 'assurance' ? Math.round(totalPanier * (tauxCouvertureNum / 100)) : 0;
   const resteACharge = totalPanier - montantPrisEnCharge;
 
+  const montantRecuNum = Number(montantRecu) || 0;
+  const monnaieARendre = modePaiement === 'especes' && montantRecu.trim() !== '' ? Math.max(0, montantRecuNum - totalPanier) : 0;
+
   async function validerVente() {
     if (panier.length === 0) return;
 
@@ -259,6 +271,11 @@ export default function PharmaciePage() {
 
     if (modePaiement === 'mobile_money' && !mobileMoneyOperateur) {
       showToast('error', "Choisis l'opérateur mobile money.");
+      return;
+    }
+
+    if (modePaiement === 'especes' && montantRecu.trim() !== '' && montantRecuNum < totalPanier) {
+      showToast('error', 'Le montant reçu est inférieur au total de la vente.');
       return;
     }
 
@@ -280,6 +297,8 @@ export default function PharmaciePage() {
         assurance_patient_nom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
         mobile_money_operateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
         mobile_money_numero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
+        montant_recu: modePaiement === 'especes' && montantRecu.trim() !== '' ? montantRecuNum : null,
+        monnaie_rendue: modePaiement === 'especes' && montantRecu.trim() !== '' ? monnaieARendre : null,
       })
       .select('id')
       .single();
@@ -328,6 +347,8 @@ export default function PharmaciePage() {
       assurancePatientNom: modePaiement === 'assurance' ? (assurancePatientNom.trim() || null) : null,
       mobileMoneyOperateur: modePaiement === 'mobile_money' ? mobileMoneyOperateur : null,
       mobileMoneyNumero: modePaiement === 'mobile_money' ? (mobileMoneyNumero.trim() || null) : null,
+      montantRecu: modePaiement === 'especes' && montantRecu.trim() !== '' ? montantRecuNum : null,
+      monnaieRendue: modePaiement === 'especes' && montantRecu.trim() !== '' ? monnaieARendre : null,
     });
 
     setPanier([]);
@@ -339,6 +360,7 @@ export default function PharmaciePage() {
     setAssurancePatientNom('');
     setMobileMoneyOperateur(OPERATEURS_MOBILE_MONEY[0]);
     setMobileMoneyNumero('');
+    setMontantRecu('');
     loadAll();
   }
 
@@ -556,6 +578,30 @@ export default function PharmaciePage() {
                   </select>
                 </div>
 
+                {modePaiement === 'especes' && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
+                      Rendu de monnaie (optionnel)
+                    </div>
+                    <div className="field">
+                      <label>Montant reçu du client (F)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={montantRecu}
+                        onChange={(e) => setMontantRecu(e.target.value)}
+                        placeholder={`ex. ${totalPanier}`}
+                      />
+                    </div>
+                    {montantRecu.trim() !== '' && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: 8 }}>
+                        <span>Monnaie à rendre</span>
+                        <strong>{monnaieARendre.toLocaleString('fr-FR')} F</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {modePaiement === 'mobile_money' && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-mid)', marginBottom: 10 }}>
@@ -670,6 +716,11 @@ export default function PharmaciePage() {
                       <td>{new Date(v.created_at).toLocaleString('fr-FR')}</td>
                       <td style={{ textTransform: 'capitalize' }}>
                         {v.mode_paiement.replace('_', ' ')}
+                        {v.mode_paiement === 'especes' && v.montant_recu != null && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-mid)', textTransform: 'none' }}>
+                            Reçu {v.montant_recu.toLocaleString('fr-FR')} F · Rendu {(v.monnaie_rendue ?? 0).toLocaleString('fr-FR')} F
+                          </div>
+                        )}
                         {v.mode_paiement === 'mobile_money' && v.mobile_money_operateur && (
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-mid)', textTransform: 'none' }}>
                             {v.mobile_money_operateur}
@@ -762,6 +813,11 @@ export default function PharmaciePage() {
               <div style={{ fontSize: '0.8rem', marginTop: 8, textTransform: 'capitalize' }}>
                 Paiement : {recu.modePaiement.replace('_', ' ')}
               </div>
+              {recu.modePaiement === 'especes' && recu.montantRecu != null && (
+                <div style={{ fontSize: '0.75rem' }}>
+                  Reçu : {recu.montantRecu.toLocaleString('fr-FR')} F — Rendu : {(recu.monnaieRendue ?? 0).toLocaleString('fr-FR')} F
+                </div>
+              )}
               {recu.modePaiement === 'mobile_money' && recu.mobileMoneyOperateur && (
                 <div style={{ fontSize: '0.75rem' }}>
                   {recu.mobileMoneyOperateur}

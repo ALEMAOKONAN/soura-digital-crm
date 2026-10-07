@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Copy, Check, ShieldCheck, ShieldOff, UserX, UserCheck } from 'lucide-react';
 import { useToast } from '@/lib/toast';
 import Spinner from '../../components/spinner';
+import { domainePourSecteur } from '@/lib/secteurs';
 
-type Membre = { id: string; full_name: string | null; role: string; actif: boolean };
+type Membre = { id: string; full_name: string | null; role: string; actif: boolean; pharmacie_role: string | null };
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', membre: 'Membre' };
+const PHARMACIE_ROLE_LABEL: Record<string, string> = { caisse: 'Caisse', stock: 'Stock' };
 
 export default function EquipePage() {
   const supabase = createClient();
@@ -18,6 +20,7 @@ export default function EquipePage() {
   const [monId, setMonId] = useState<string | null>(null);
   const [monRole, setMonRole] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [domaine, setDomaine] = useState<'btp' | 'pharmacie'>('btp');
   const [loading, setLoading] = useState(true);
   const [copie, setCopie] = useState(false);
 
@@ -35,11 +38,15 @@ export default function EquipePage() {
     setOrganizationId(monProfil?.organization_id ?? null);
 
     const [{ data: org }, { data: profils }] = await Promise.all([
-      supabase.from('organizations').select('invite_code').eq('id', monProfil!.organization_id).single(),
-      supabase.from('profiles').select('id, full_name, role, actif').eq('organization_id', monProfil!.organization_id),
+      supabase.from('organizations').select('invite_code, secteur').eq('id', monProfil!.organization_id).single(),
+      supabase
+        .from('profiles')
+        .select('id, full_name, role, actif, pharmacie_role')
+        .eq('organization_id', monProfil!.organization_id),
     ]);
 
     setInviteCode(org?.invite_code ?? null);
+    setDomaine(domainePourSecteur(org?.secteur ?? 'general'));
     setMembres(profils ?? []);
     setLoading(false);
   }
@@ -73,6 +80,21 @@ export default function EquipePage() {
       return;
     }
     showToast('success', nouveauStatut ? `${membre.full_name || 'Membre'} réactivé.` : `${membre.full_name || 'Membre'} désactivé.`);
+    chargerTout();
+  }
+
+  async function changerPharmacieRole(membre: Membre, nouveauPharmacieRole: string | null) {
+    const { error } = await supabase.from('profiles').update({ pharmacie_role: nouveauPharmacieRole }).eq('id', membre.id);
+    if (error) {
+      showToast('error', "Impossible de modifier l'accès pharmacie de ce membre.");
+      return;
+    }
+    showToast(
+      'success',
+      nouveauPharmacieRole
+        ? `${membre.full_name || 'Membre'} est maintenant habilité "${PHARMACIE_ROLE_LABEL[nouveauPharmacieRole]}".`
+        : `Accès pharmacie retiré pour ${membre.full_name || 'ce membre'}.`
+    );
     chargerTout();
   }
 
@@ -122,6 +144,7 @@ export default function EquipePage() {
             <th>Nom</th>
             <th>Rôle</th>
             <th>Statut</th>
+            {domaine === 'pharmacie' && <th>Accès pharmacie</th>}
             {monRole === 'admin' && <th></th>}
           </tr>
         </thead>
@@ -139,6 +162,26 @@ export default function EquipePage() {
                     {m.actif ? 'Actif' : 'Désactivé'}
                   </span>
                 </td>
+                {domaine === 'pharmacie' && (
+                  <td>
+                    {m.role === 'admin' ? (
+                      <span style={{ color: 'var(--text-mid)', fontSize: '0.85rem' }}>Accès complet</span>
+                    ) : monRole === 'admin' && !cestMoi ? (
+                      <select
+                        value={m.pharmacie_role ?? ''}
+                        onChange={(e) => changerPharmacieRole(m, e.target.value || null)}
+                      >
+                        <option value="">Aucun accès</option>
+                        <option value="caisse">Caisse</option>
+                        <option value="stock">Stock</option>
+                      </select>
+                    ) : (
+                      <span style={{ fontSize: '0.85rem', color: m.pharmacie_role ? 'var(--text-hi)' : 'var(--text-mid)' }}>
+                        {m.pharmacie_role ? PHARMACIE_ROLE_LABEL[m.pharmacie_role] ?? m.pharmacie_role : 'Aucun accès'}
+                      </span>
+                    )}
+                  </td>
+                )}
                 {monRole === 'admin' && (
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {!cestMoi && (
