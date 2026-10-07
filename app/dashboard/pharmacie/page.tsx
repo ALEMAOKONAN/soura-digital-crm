@@ -114,16 +114,29 @@ export default function PharmaciePage() {
   const [recu, setRecu] = useState<Recu | null>(null);
   const [orgName, setOrgName] = useState('');
 
+  // Accès au stock : réservé à l'admin et aux employés "stock" / "commande".
+  // Un employé "caisse" ne voit que l'onglet Caisse / vente.
+  const [peutVoirStock, setPeutVoirStock] = useState(true);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: profile } = await supabase
         .from('profiles')
-        .select('organizations(name)')
+        .select('role, pharmacie_role, organizations(name)')
         .eq('id', user.id)
         .single();
       setOrgName((profile as any)?.organizations?.name ?? '');
+
+      const autoriseStock =
+        profile?.role === 'admin' ||
+        profile?.pharmacie_role === 'stock' ||
+        profile?.pharmacie_role === 'commande';
+      setPeutVoirStock(autoriseStock);
+      if (!autoriseStock) {
+        setOnglet('vente');
+      }
     })();
   }, []);
 
@@ -467,15 +480,17 @@ export default function PharmaciePage() {
       )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button className={onglet === 'stock' ? '' : 'secondary'} onClick={() => setOnglet('stock')}>
-          Stock & produits
-        </button>
+        {peutVoirStock && (
+          <button className={onglet === 'stock' ? '' : 'secondary'} onClick={() => setOnglet('stock')}>
+            Stock & produits
+          </button>
+        )}
         <button className={onglet === 'vente' ? '' : 'secondary'} onClick={() => setOnglet('vente')}>
           Caisse / vente
         </button>
       </div>
 
-      {onglet === 'stock' && (
+      {onglet === 'stock' && peutVoirStock && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0 }}>Produits</h3>
