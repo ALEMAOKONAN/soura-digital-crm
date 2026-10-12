@@ -837,10 +837,11 @@ export default function PharmaciePage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: 16,
             zIndex: 1000,
           }}
         >
-          <div style={{ background: '#fff', color: '#111', borderRadius: 8, padding: 24, width: 360, maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: '#fff', color: '#111', borderRadius: 8, padding: 24, width: '100%', maxWidth: 360, maxHeight: '90vh', overflow: 'auto' }}>
             <div id="zone-impression">
               <div style={{ textAlign: 'center', marginBottom: 12 }}>
                 <strong style={{ fontSize: '1.05rem' }}>{orgName || 'Pharmacie'}</strong>

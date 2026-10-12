@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard, HardHat, FileText, Wallet, ShoppingCart, Boxes,
@@ -42,6 +42,26 @@ export default function DashboardShell({
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Ferme le tiroir quand on change de page
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Tiroir ouvert : on bloque le défilement de la page derrière, et Échap le ferme
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const ancien = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const surTouche = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', surTouche);
+    return () => {
+      document.body.style.overflow = ancien;
+      window.removeEventListener('keydown', surTouche);
+    };
+  }, [mobileOpen]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push('/login');
@@ -65,6 +85,7 @@ export default function DashboardShell({
             <Link
               key={m.href}
               href={m.ready ? m.href : '#'}
+              className="sidebar-link"
               onClick={() => setMobileOpen(false)}
               style={{
                 padding: '10px 12px',
@@ -101,7 +122,7 @@ export default function DashboardShell({
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="dashboard-root">
       <div className="mobile-topbar">
         <div className="brand" style={{ margin: 0 }}>SOURA <span>DIGITAL</span></div>
         <button className="secondary" onClick={() => setMobileOpen(true)} style={{ padding: 8 }} aria-label="Ouvrir le menu">
@@ -111,21 +132,18 @@ export default function DashboardShell({
 
       {mobileOpen && <div className="dashboard-overlay" onClick={() => setMobileOpen(false)} />}
 
-      <aside
-        className={`dashboard-sidebar${mobileOpen ? ' open' : ''}`}
-        style={{
-          width: 260,
-          borderRight: '1px solid var(--line)',
-          background: 'var(--panel)',
-          padding: '20px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <aside className={`dashboard-sidebar${mobileOpen ? ' open' : ''}`}>
+        <button
+          className="secondary sidebar-close"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Fermer le menu"
+        >
+          <X size={20} />
+        </button>
         {sidebarContent}
       </aside>
 
-      <main style={{ flex: 1, padding: '32px 40px', minWidth: 0 }}>{children}</main>
+      <main className="dashboard-main">{children}</main>
     </div>
   );
 }

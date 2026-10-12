@@ -202,32 +202,122 @@ input:focus, select:focus {
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Menu mobile */
+/* Structure du tableau de bord (bureau) */
+.dashboard-root { display: flex; min-height: 100vh; }
+.dashboard-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-main { flex: 1; padding: 32px 40px; min-width: 0; }
 .mobile-topbar { display: none; }
-@media (max-width: 860px) {
+.sidebar-close { display: none; }
+
+/* ============================================================
+   MOBILE / TABLETTE
+   Les grilles et marges de plusieurs pages sont écrites en style
+   "inline" : on les surcharge ici avec des sélecteurs d'attribut
+   + !important, ce qui adapte toutes les pages d'un seul coup.
+   "screen" évite que ces règles touchent l'impression des reçus.
+   ============================================================ */
+html { -webkit-text-size-adjust: 100%; }
+
+@media screen and (max-width: 860px) {
+  /* Menu latéral -> tiroir */
+  .dashboard-root { flex-direction: column; }
   .dashboard-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 100;
+    width: min(300px, 86vw);
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+  .dashboard-sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
     transition: transform 0.2s ease;
   }
-  .dashboard-sidebar.open { transform: translateX(0); }
+  .sidebar-close {
+    display: inline-flex;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 8px;
+  }
+  .sidebar-link { padding: 13px 12px !important; font-size: 0.95rem !important; }
   .mobile-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 50;
   }
   .dashboard-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 90;
   }
+  .dashboard-main { padding: 20px 16px 40px; overflow-wrap: break-word; }
+}
+
+@media screen and (max-width: 720px) {
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.05rem; }
+
+  .card { padding: 16px; }
+
+  /* Champs : 16px minimum, sinon iPhone zoome au toucher */
+  input, select, textarea { font-size: 16px; }
+
+  /* Grilles inline -> une seule colonne */
+  [style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* ...sauf les blocs de chiffres, gardés sur 2 colonnes */
+  [style*="repeat(3, 1fr)"],
+  [style*="repeat(4, 1fr)"],
+  [style*="auto-fit"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  /* Tableaux : défilement horizontal dans le tableau, pas dans la page */
+  .table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table th, .table td { padding-right: 14px; }
+  .table th:last-child, .table td:last-child { padding-right: 0; }
+
+  /* Notifications pleine largeur */
+  .toast-stack { left: 12px; right: 12px; bottom: 12px; }
+  .toast { max-width: none; }
+}
+
+/* Écrans tactiles : zones de toucher confortables */
+@media screen and (pointer: coarse) {
+  button, .btn, input, select { min-height: 44px; }
+  button { -webkit-tap-highlight-color: transparent; }
 }
 
 .auth-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
